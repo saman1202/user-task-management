@@ -9,7 +9,7 @@ dotenv.config();
 
 import connectDB from './config/database.js';
 import { getRegister, postRegister, getLogin, postLogin, logout } from './controllers/authController.js';
-import { getDashboard, createTask, updateTaskStatus, deleteTask } from './controllers/authDashboard.js';
+import { getDashboard, createTask, updateTaskStatus, deleteTask } from './controllers/dashboardController.js';
 
 connectDB();
 
