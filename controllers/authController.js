@@ -1,6 +1,9 @@
 import User from '../models/User.js';
 
 export const getRegister = (req, res) => {
+    if (req.session.userId) {
+        return res.redirect('/dashboard');
+    }
     res.render('auth/register', { 
         title: 'Register',
         error: null 
@@ -11,7 +14,6 @@ export const postRegister = async (req, res) => {
     try {
         const { username, email, password, confirmPassword } = req.body;
 
-        // Validation
         if (password !== confirmPassword) {
             return res.render('auth/register', {
                 title: 'Register',
@@ -26,7 +28,6 @@ export const postRegister = async (req, res) => {
             });
         }
 
-        // Check if user exists
         const existingUser = await User.findOne({
             $or: [{ email }, { username }]
         });
@@ -38,17 +39,21 @@ export const postRegister = async (req, res) => {
             });
         }
 
-        // Create new user
         const user = new User({ username, email, password });
         await user.save();
 
-        // Set session
         req.session.userId = user._id;
         req.session.username = user.username;
 
         res.redirect('/dashboard');
     } catch (error) {
-        console.error('Registration error:', error);
+        if (error.code === 11000) {
+            return res.render('auth/register', {
+                title: 'Register',
+                error: 'User with this email or username already exists'
+            });
+        }
+        
         res.render('auth/register', {
             title: 'Register',
             error: 'An error occurred during registration'
@@ -57,6 +62,9 @@ export const postRegister = async (req, res) => {
 };
 
 export const getLogin = (req, res) => {
+    if (req.session.userId) {
+        return res.redirect('/dashboard');
+    }
     res.render('auth/login', { 
         title: 'Login',
         error: null 
@@ -67,7 +75,6 @@ export const postLogin = async (req, res) => {
     try {
         const { email, password } = req.body;
 
-        // Find user
         const user = await User.findOne({ email });
         if (!user) {
             return res.render('auth/login', {
@@ -76,7 +83,6 @@ export const postLogin = async (req, res) => {
             });
         }
 
-        // Check password
         const isMatch = await user.comparePassword(password);
         if (!isMatch) {
             return res.render('auth/login', {
@@ -85,13 +91,11 @@ export const postLogin = async (req, res) => {
             });
         }
 
-        // Set session
         req.session.userId = user._id;
         req.session.username = user.username;
 
         res.redirect('/dashboard');
     } catch (error) {
-        console.error('Login error:', error);
         res.render('auth/login', {
             title: 'Login',
             error: 'An error occurred during login'
