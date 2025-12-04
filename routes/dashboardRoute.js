@@ -1,17 +1,10 @@
 import express from 'express';
-import { 
-    getDashboard, 
-    createTask, 
-    updateTaskStatus, 
-    deleteTask 
-} from '../controllers/dashboardController.js';
-import { requireAuth } from '../middleware/authMiddleware.js';
-
+import { getDashboard, createTask, updateTaskStatus, updateTask, deleteTask } from '../controllers/dashboardController.js';
+import { requireAuth } from '../middleware/middleware.js';
 const router = express.Router();
-
 router.get('/', requireAuth, getDashboard);
 router.post('/tasks', requireAuth, createTask);
 router.post('/tasks/:taskId/status', requireAuth, updateTaskStatus);
 router.post('/tasks/:taskId/delete', requireAuth, deleteTask);
-
+router.patch('/tasks/:taskId', requireAuth, updateTask);
 export default router;

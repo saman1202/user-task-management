@@ -1,82 +1,61 @@
 import express from 'express';
 import session from 'express-session';
 import MongoStore from 'connect-mongo';
-import path from 'path';
 import { fileURLToPath } from 'url';
+import path from 'path';
 import dotenv from 'dotenv';
+import connectDB from './config/database.js';
+import authRoutes from './routes/authRoute.js';
+import dashboardRoutes from './routes/dashboardRoute.js';
 
 dotenv.config();
 
-import connectDB from './config/database.js';
-import { getRegister, postRegister, getLogin, postLogin, logout } from './controllers/authController.js';
-import { getDashboard, createTask, updateTaskStatus, deleteTask } from './controllers/dashboardController.js';
-
-connectDB();
+await connectDB();
 
 const app = express();
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, 'public')));
+
+// Dev logger
+if (process.env.NODE_ENV !== 'production') {
+    app.use((req, res, next) => {
+        console.log('--- incoming request ---');
+        console.log('Method:', req.method, 'URL:', req.originalUrl);
+        console.log('Content-Type:', req.get('Content-Type'));
+        console.log('Body:', req.body);
+        console.log('Cookies:', req.headers.cookie);
+        console.log('------------------------');
+        next();
+    });
+}
 
 app.use(session({
-    secret: process.env.SESSION_SECRET,
+    secret: process.env.SESSION_SECRET || 'dev_secret_change_me',
     resave: false,
     saveUninitialized: false,
     store: MongoStore.create({
         mongoUrl: process.env.MONGODB_URI,
-        collectionName: 'sessions',
-        ttl: 24 * 60 * 60
+        collectionName: 'sessions'
     }),
-    cookie: {
-        maxAge: 1000 * 60 * 60 * 24
-    }
+    cookie: { maxAge: 1000 * 60 * 60 * 24 }
 }));
 
-app.set('view engine', 'ejs');
-app.set('views', path.join(__dirname, 'views'));
+app.use('/auth', authRoutes);
+app.use('/dashboard', dashboardRoutes);
 
-// Routes
 app.get('/', (req, res) => {
-    if (req.session.userId) {
-        return res.redirect('/dashboard');
-    }
-    res.redirect('/auth/login');
+    res.json({ ok: true, message: 'API running', authenticated: !!req.session.userId });
 });
 
-// Auth Routes
-app.get('/auth/register', getRegister);
-app.post('/auth/register', postRegister);
-app.get('/auth/login', getLogin);
-app.post('/auth/login', postLogin);
-app.post('/auth/logout', logout);
-
-// Dashboard Routes
-app.get('/dashboard', getDashboard);
-app.post('/dashboard/tasks', createTask);
-app.post('/dashboard/tasks/:id/status', updateTaskStatus);
-app.post('/dashboard/tasks/:id/delete', deleteTask);
-
-// Error Handlers
-app.use((req, res) => {
-    res.status(404).render('error', {
-        title: '404 - Not Found',
-        error: 'Page not found'
-    });
-});
-
+app.use((req, res) => res.status(404).json({ ok: false, error: 'Not found' }));
 app.use((err, req, res, next) => {
-    console.error('Server error:', err);
-    res.status(500).render('error', {
-        title: 'Server Error',
-        error: 'Internal server error occurred'
-    });
+    console.error('Unhandled error:', err);
+    res.status(500).json({ ok: false, error: 'Internal server error' });
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-});
+app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
